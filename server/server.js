@@ -7,15 +7,29 @@ const port = process.env.PORT || 3000;
 
 // Initialize Firestore
 const firestore = new Firestore({
-  projectId: 'skiingjs', // Replace with your GCP project ID
-  keyFilename: './skiingjs-893ba64abde3.json', // Path to your key file
+  databaseId: 'highscores'
 });
 const highScoresCollection = firestore.collection('highscores');
 
-// Middleware to parse JSON requests
 app.use(bodyParser.json());
 
-// Route to get the top 10 high scores
+// Middleware to restrict access to einarnot.github.io
+const restrictToDomain = (req, res, next) => {
+  const allowedOrigin = 'https://einarnot.github.io';
+  const origin = req.headers.origin || req.headers.referer;
+
+  // Normalize referer by removing trailing slashes or paths if present
+  const normalizedOrigin = origin ? origin.replace(/\/$/, '') : '';
+
+  if (!normalizedOrigin || normalizedOrigin !== allowedOrigin) {
+    return res.status(403).json({ error: 'Access denied: Unauthorized origin' });
+  }
+  next();
+};
+
+// Apply the middleware to all routes (or specific ones)
+app.use(restrictToDomain);
+
 app.get('/highscores', async (req, res) => {
   try {
     const snapshot = await highScoresCollection.orderBy('score', 'desc').limit(10).get();
@@ -26,22 +40,20 @@ app.get('/highscores', async (req, res) => {
   }
 });
 
-// Route to post a new high score
 app.post('/highscores', async (req, res) => {
   const { name, score } = req.body;
   if (!name || !score) {
     return res.status(400).json({ error: 'Name and score are required' });
   }
   try {
-    await highScoresCollection.add({ name, score });
-    res.status(201).json({ message: 'Score added successfully' });
+    const docRef = await highScoresCollection.add({ name, score });
+    res.status(201).json({ message: 'Score added successfully', id: docRef.id });
   } catch (error) {
-    console.error('Error adding score:', error);
+    console.error('Error adding score:', error.code, error.message);
     res.status(500).json({ error: 'Failed to add score', details: error.message });
   }
 });
 
-// Start the server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
