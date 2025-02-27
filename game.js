@@ -386,23 +386,63 @@ function updateObstacles() {
 function updateSpectators() {
     spectatorSpawnTimer++;
     if (spectatorSpawnTimer >= SPECTATOR_SPAWN_INTERVAL) {
-        // Randomly spawn spectators on the sides
+        // Randomly spawn spectator groups on the sides
         const side = Math.random() > 0.5 ? 'left' : 'right';
-        const distance = side === 'left' ? -50 - Math.random() * 100 : CANVAS_WIDTH + Math.random() * 100;
+        const baseDistance = side === 'left' ? -50 - Math.random() * 100 : CANVAS_WIDTH + Math.random() * 100;
+        const baseY = CANVAS_HEIGHT - 40 - Math.random() * 20; // Base height on ground
         
-        // Create a spectator with random properties
-        spectators.push({
-            type: 'spectator',
-            worldX: worldX + distance,
-            y: CANVAS_HEIGHT - 40 - Math.random() * 20, // Varied height on ground
+        // Create a group of 3-5 spectators
+        const groupSize = 3 + Math.floor(Math.random() * 3);
+        const groupSpread = 40; // How spread out the group is
+        
+        // Add campfire or tent to some groups
+        const hasCampfire = Math.random() > 0.6;
+        const hasTent = !hasCampfire && Math.random() > 0.6;
+        
+        // Create the spectator group
+        const spectatorGroup = {
+            type: 'spectator_group',
+            worldX: worldX + baseDistance,
+            y: baseY,
             side: side,
-            waving: Math.random() > 0.3, // Some are waving
-            jumping: Math.random() > 0.7, // Some are jumping with excitement
-            animationOffset: Math.random() * 100, // Different animation timing
-            color: Math.floor(Math.random() * 6), // Different colored outfits
-            animationSpeed: 0.5 + Math.random() * 1 // Different animation speeds
-        });
+            members: [],
+            hasCampfire: hasCampfire,
+            hasTent: hasTent,
+            campfireAnimationOffset: Math.random() * 100
+        };
         
+        // Generate individual spectators in the group
+        for (let i = 0; i < groupSize; i++) {
+            // Position within group (circular arrangement if there's a campfire)
+            let offsetX, offsetY;
+            
+            if (hasCampfire) {
+                // Arrange in semicircle around campfire
+                const angle = (i / (groupSize - 1)) * Math.PI;
+                offsetX = Math.cos(angle) * 20;
+                offsetY = Math.sin(angle) * 10;
+                if (side === 'right') offsetX = -offsetX; // Flip for right side
+            } else {
+                // Arrange in loose cluster
+                offsetX = (Math.random() - 0.5) * groupSpread;
+                offsetY = (Math.random() - 0.5) * 20;
+            }
+            
+            // Individual spectator properties
+            spectatorGroup.members.push({
+                offsetX: offsetX,
+                offsetY: offsetY,
+                waving: Math.random() > 0.3, // All have arms, some are waving
+                jumping: Math.random() > 0.7, // Some are jumping with excitement
+                animationOffset: Math.random() * 100, // Different animation timing
+                color: Math.floor(Math.random() * 6), // Different colored outfits
+                animationSpeed: 0.5 + Math.random() * 1, // Different animation speeds
+                leftArmRaised: Math.random() > 0.5, // Which arm is raised if waving
+                rightArmRaised: Math.random() > 0.5  // Both arms might be raised
+            });
+        }
+        
+        spectators.push(spectatorGroup);
         spectatorSpawnTimer = 0;
     }
     
@@ -410,7 +450,7 @@ function updateSpectators() {
     spectators.forEach(spectator => spectator.worldX -= 2 + skier.speed * 0.2);
     
     // Remove spectators that are far behind
-    spectators = spectators.filter(spectator => spectator.worldX > worldX - 400);
+    spectators = spectators.filter(spectator => spectator.worldX > worldX - 600);
 }
 
 // Check collisions
@@ -419,13 +459,14 @@ function checkCollisions() {
         const obstacleScreenX = obstacle.worldX - worldX;
         
         if (obstacle.type === 'skier') {
-            // For fallen skiers - can jump over them
+            // For fallen skiers - can ONLY jump over them, not duck
             if (
                 skier.x < obstacleScreenX + obstacle.width &&
                 skier.x + 20 > obstacleScreenX &&
                 skier.y < obstacle.y + obstacle.height &&
                 skier.y + skier.height > obstacle.y
             ) {
+                // Must jump over fallen skiers, ducking doesn't help
                 if (!skier.isJumping) gameOver();
             }
         } else if (obstacle.type === 'bridge') {
@@ -523,13 +564,17 @@ function render() {
             ctx.fillText('JUMPING', CANVAS_WIDTH - 100, 100);
         }
         
-        // Draw background spectators (furthest from the track)
+        // Draw background spectators and spectator groups
         spectators.forEach(spectator => {
             try {
                 const spectatorScreenX = spectator.worldX - worldX;
                 // Only draw if in visible range and far from the track
-                if (spectatorScreenX >= -50 && spectatorScreenX <= CANVAS_WIDTH + 50) {
-                    drawSpectator(spectator);
+                if (spectatorScreenX >= -100 && spectatorScreenX <= CANVAS_WIDTH + 100) {
+                    if (spectator.type === 'spectator_group') {
+                        drawSpectatorGroup(spectator);
+                    } else {
+                        drawSpectator(spectator);
+                    }
                 }
             } catch (error) {
                 console.error("Error drawing spectator:", error);
@@ -996,19 +1041,62 @@ function drawBridgeSpectator(x, y, spectator) {
     ctx.arc(x, y - 7, 4, 0, Math.PI, true);
     ctx.fill();
     
-    // Draw waving arm if applicable
+    // Draw right arm (always present)
+    ctx.strokeStyle = color.body;
+    ctx.lineWidth = 2;
+    
+    // Right arm waving or static
     if (spectator.waving) {
-        ctx.strokeStyle = color.body;
-        ctx.lineWidth = 2;
+        const rightWaveAmount = waveAmount;
         ctx.beginPath();
         ctx.moveTo(x + 4, y + 3);
-        ctx.lineTo(x + 8, y - waveAmount);
+        ctx.lineTo(x + 8, y - rightWaveAmount);
         ctx.stroke();
         
         // Hand
         ctx.fillStyle = '#FFD3B6';
         ctx.beginPath();
-        ctx.arc(x + 8, y - waveAmount, 2, 0, Math.PI * 2);
+        ctx.arc(x + 8, y - rightWaveAmount, 2, 0, Math.PI * 2);
+        ctx.fill();
+    } else {
+        // Static right arm
+        ctx.beginPath();
+        ctx.moveTo(x + 4, y + 3);
+        ctx.lineTo(x + 8, y + 5);
+        ctx.stroke();
+        
+        // Hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x + 8, y + 5, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // Left arm (always present)
+    const leftWaveAmount = spectator.waving ? Math.sin((time + 50) * 0.5) * 10 : 0;
+    
+    if (spectator.waving) {
+        ctx.beginPath();
+        ctx.moveTo(x - 4, y + 3);
+        ctx.lineTo(x - 8, y - leftWaveAmount);
+        ctx.stroke();
+        
+        // Hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x - 8, y - leftWaveAmount, 2, 0, Math.PI * 2);
+        ctx.fill();
+    } else {
+        // Static left arm
+        ctx.beginPath();
+        ctx.moveTo(x - 4, y + 3);
+        ctx.lineTo(x - 8, y + 5);
+        ctx.stroke();
+        
+        // Hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x - 8, y + 5, 2, 0, Math.PI * 2);
         ctx.fill();
     }
     
@@ -1022,16 +1110,334 @@ function drawBridgeSpectator(x, y, spectator) {
         ctx.lineWidth = 0.5;
         ctx.stroke();
         
-        // Exclamation point
+        // Different cheer options
+        const cheerType = Math.floor(time / 10) % 4;
         ctx.fillStyle = '#000';
         ctx.font = '8px Arial';
-        ctx.fillText("!", x + 8, y - 8);
+        let cheerText = "!";
+        
+        switch(cheerType) {
+            case 0: cheerText = "!"; break;
+            case 1: cheerText = "GO"; break;
+            case 2: cheerText = "WOW"; break;
+            case 3: cheerText = "♥"; break;
+        }
+        
+        ctx.fillText(cheerText, cheerText.length > 1 ? x + 6 : x + 8, y - 8);
     }
     
     ctx.restore();
 }
 
-// Draw spectator along the route
+// Draw spectator group with campfire/tent
+function drawSpectatorGroup(group) {
+    ctx.save();
+    
+    const screenX = group.worldX - worldX;
+    const baseY = group.y;
+    
+    // Draw campfire if present
+    if (group.hasCampfire) {
+        drawCampfire(screenX, baseY + 15, group.campfireAnimationOffset);
+    }
+    
+    // Draw tent if present
+    if (group.hasTent) {
+        drawTent(screenX, baseY - 10, group.side);
+    }
+    
+    // Draw all members of the group
+    group.members.forEach(member => {
+        const memberX = screenX + member.offsetX;
+        const memberY = baseY + member.offsetY;
+        
+        drawGroupMember(memberX, memberY, member, group.side);
+    });
+    
+    ctx.restore();
+}
+
+// Draw a campfire
+function drawCampfire(x, y, animOffset) {
+    // Log pile
+    ctx.fillStyle = '#8B4513'; // Brown wood
+    ctx.beginPath();
+    ctx.moveTo(x - 8, y + 5);
+    ctx.lineTo(x + 8, y + 5);
+    ctx.lineTo(x + 6, y);
+    ctx.lineTo(x - 6, y);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Animated flames
+    const time = Date.now() / 100 + animOffset;
+    
+    // Base of fire
+    ctx.fillStyle = '#F57F17'; // Dark orange
+    ctx.beginPath();
+    ctx.ellipse(x, y - 2, 7, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Animated flames
+    const flameHeight = 10 + Math.sin(time * 0.3) * 3;
+    
+    // Main flame
+    const gradient = ctx.createLinearGradient(x, y - 5, x, y - flameHeight - 5);
+    gradient.addColorStop(0, '#FF5722');   // Orange at bottom
+    gradient.addColorStop(0.7, '#FFEB3B'); // Yellow in middle
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0.5)'); // Transparent white at top
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    
+    // Draw dancing flame shape
+    ctx.moveTo(x - 5, y - 2);
+    
+    // Left curve of flame
+    ctx.quadraticCurveTo(
+        x - 8 + Math.sin(time * 0.5) * 2, 
+        y - flameHeight * 0.5, 
+        x - 2 + Math.sin(time * 0.7) * 2, 
+        y - flameHeight - 3
+    );
+    
+    // Peak of flame
+    ctx.quadraticCurveTo(
+        x + Math.sin(time * 0.8) * 2, 
+        y - flameHeight - 6, 
+        x + 2 + Math.sin(time * 0.7) * 2, 
+        y - flameHeight - 3
+    );
+    
+    // Right curve of flame
+    ctx.quadraticCurveTo(
+        x + 8 + Math.sin(time * 0.5) * 2, 
+        y - flameHeight * 0.5, 
+        x + 5, 
+        y - 2
+    );
+    
+    ctx.closePath();
+    ctx.fill();
+    
+    // Embers (small particles rising from fire)
+    ctx.fillStyle = 'rgba(255, 200, 0, 0.7)';
+    for (let i = 0; i < 3; i++) {
+        const emberX = x + Math.sin(time * 0.5 + i) * 5;
+        const emberY = y - 5 - ((time * 0.2 + i * 20) % 15);
+        const emberSize = 1 + Math.sin(time + i) * 0.5;
+        
+        ctx.beginPath();
+        ctx.arc(emberX, emberY, emberSize, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // Smoke
+    ctx.fillStyle = 'rgba(100, 100, 100, 0.2)';
+    for (let i = 0; i < 2; i++) {
+        const smokeX = x + Math.sin(time * 0.2 + i * 3) * 10;
+        const smokeY = y - flameHeight - 5 - ((time * 0.1 + i * 30) % 20);
+        const smokeSize = 4 + Math.sin(time * 0.3 + i) * 2;
+        
+        ctx.beginPath();
+        ctx.arc(smokeX, smokeY, smokeSize, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// Draw a camping tent
+function drawTent(x, y, side) {
+    // Flip tent based on side
+    const direction = side === 'left' ? 1 : -1;
+    
+    // Tent canvas/fabric
+    ctx.fillStyle = '#1565C0'; // Deep blue
+    ctx.beginPath();
+    ctx.moveTo(x, y - 25); // Peak
+    ctx.lineTo(x + 25 * direction, y); // Right bottom
+    ctx.lineTo(x - 25 * direction, y); // Left bottom
+    ctx.closePath();
+    ctx.fill();
+    
+    // Tent entrance flap
+    ctx.fillStyle = '#0D47A1'; // Darker blue
+    ctx.beginPath();
+    ctx.moveTo(x, y - 25); // Peak
+    ctx.lineTo(x + 5 * direction, y - 5); // Top of entrance
+    ctx.lineTo(x, y - 3); // Bottom of entrance
+    ctx.lineTo(x - 5 * direction, y - 5); // Top of entrance on other side
+    ctx.closePath();
+    ctx.fill();
+    
+    // Tent pole
+    ctx.strokeStyle = '#8B4513'; // Brown
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y - 25); // Top
+    ctx.lineTo(x, y); // Bottom
+    ctx.stroke();
+    
+    // Stakes and ropes
+    ctx.strokeStyle = '#CCC';
+    ctx.lineWidth = 1;
+    
+    // Left rope and stake
+    ctx.beginPath();
+    ctx.moveTo(x - 23 * direction, y);
+    ctx.lineTo(x - 30 * direction, y + 5);
+    ctx.stroke();
+    
+    // Right rope and stake
+    ctx.beginPath();
+    ctx.moveTo(x + 23 * direction, y);
+    ctx.lineTo(x + 30 * direction, y + 5);
+    ctx.stroke();
+}
+
+// Draw an individual group member
+function drawGroupMember(x, y, member, side) {
+    // Animation timing
+    const time = Date.now() / 200 + member.animationOffset;
+    
+    // Jumping animation
+    let jumpOffset = 0;
+    if (member.jumping) {
+        jumpOffset = Math.abs(Math.sin(time * member.animationSpeed)) * 10;
+    }
+    
+    // Bobbing animation
+    const bobAmount = Math.sin(time * 0.3) * 2;
+    
+    // Colors based on member.color (0-5)
+    const colors = [
+        { body: '#F00', head: '#FFC107' }, // Red jacket, yellow hat
+        { body: '#3F51B5', head: '#F44336' }, // Blue jacket, red hat
+        { body: '#4CAF50', head: '#9C27B0' }, // Green jacket, purple hat
+        { body: '#FF9800', head: '#2196F3' }, // Orange jacket, blue hat
+        { body: '#9C27B0', head: '#4CAF50' }, // Purple jacket, green hat
+        { body: '#607D8B', head: '#FF9800' }  // Gray jacket, orange hat
+    ];
+    
+    const color = colors[member.color % colors.length];
+    
+    // Apply animations
+    const drawY = y - jumpOffset + bobAmount;
+    
+    // Draw body
+    ctx.fillStyle = color.body;
+    ctx.fillRect(x - 6, drawY, 12, 20);
+    
+    // Draw legs
+    ctx.fillStyle = '#333';
+    ctx.fillRect(x - 5, drawY + 20, 4, 10);
+    ctx.fillRect(x + 1, drawY + 20, 4, 10);
+    
+    // Draw head
+    ctx.fillStyle = '#FFD3B6'; // Skin tone
+    ctx.beginPath();
+    ctx.arc(x, drawY - 5, 6, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw hat
+    ctx.fillStyle = color.head;
+    ctx.beginPath();
+    ctx.arc(x, drawY - 8, 5, 0, Math.PI, true);
+    ctx.fill();
+    
+    // Draw arms (both always present)
+    ctx.strokeStyle = color.body;
+    ctx.lineWidth = 3;
+    
+    // LEFT ARM
+    // Left arm waving or static
+    if (member.waving && member.leftArmRaised) {
+        const leftWaveAmount = Math.sin(time * 0.5) * 15;
+        ctx.beginPath();
+        ctx.moveTo(x - 6, drawY + 5);
+        ctx.lineTo(x - 14, drawY - leftWaveAmount);
+        ctx.stroke();
+        
+        // Hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x - 14, drawY - leftWaveAmount, 3, 0, Math.PI * 2);
+        ctx.fill();
+    } else {
+        // Static left arm
+        ctx.beginPath();
+        ctx.moveTo(x - 6, drawY + 5);
+        ctx.lineTo(x - 12, drawY + 8);
+        ctx.stroke();
+        
+        // Hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x - 12, drawY + 8, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // RIGHT ARM
+    // Right arm waving or static
+    if (member.waving && member.rightArmRaised) {
+        const rightWaveAmount = Math.sin((time + 50) * 0.5) * 15;
+        ctx.beginPath();
+        ctx.moveTo(x + 6, drawY + 5);
+        ctx.lineTo(x + 14, drawY - rightWaveAmount);
+        ctx.stroke();
+        
+        // Hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x + 14, drawY - rightWaveAmount, 3, 0, Math.PI * 2);
+        ctx.fill();
+    } else {
+        // Static right arm
+        ctx.beginPath();
+        ctx.moveTo(x + 6, drawY + 5);
+        ctx.lineTo(x + 12, drawY + 8);
+        ctx.stroke();
+        
+        // Hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x + 12, drawY + 8, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // Speech bubbles and cheers
+    if ((time % 150) < 15) {
+        // Create speech bubble
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        
+        // Position based on side
+        const bubbleX = side === 'left' ? x + 15 : x - 15;
+        ctx.arc(bubbleX, drawY - 15, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        
+        // Random cheer type
+        const cheerType = Math.floor(time / 10) % 4;
+        ctx.fillStyle = '#000';
+        ctx.font = '9px Arial';
+        let cheerText = "!";
+        
+        switch(cheerType) {
+            case 0: cheerText = "!"; break;
+            case 1: cheerText = "GO!"; break;
+            case 2: cheerText = "WOW"; break;
+            case 3: cheerText = "♥"; break;
+        }
+        
+        // Position text in bubble
+        const textX = side === 'left' ? bubbleX - 3 : bubbleX - 5;
+        ctx.fillText(cheerText, textX, drawY - 12);
+    }
+}
+
+// Draw individual spectator (legacy support for non-group spectators)
 function drawSpectator(spectator) {
     ctx.save();
     
@@ -1089,15 +1495,14 @@ function drawSpectator(spectator) {
     ctx.arc(screenX, drawY - 8, 5, 0, Math.PI, true);
     ctx.fill();
     
-    // Draw waving arm if applicable
+    // Draw both arms (one waving, one static)
+    ctx.strokeStyle = color.body;
+    ctx.lineWidth = 3;
+    
     if (spectator.waving) {
-        // Draw arm
-        ctx.strokeStyle = color.body;
-        ctx.lineWidth = 3;
-        
-        // Left or right side determines which arm waves
+        // Waving arm
+        ctx.beginPath();
         if (spectator.side === 'left') {
-            ctx.beginPath();
             ctx.moveTo(screenX + 6, drawY + 5);
             ctx.lineTo(screenX + 15, drawY - waveAmount);
             ctx.stroke();
@@ -1107,8 +1512,20 @@ function drawSpectator(spectator) {
             ctx.beginPath();
             ctx.arc(screenX + 15, drawY - waveAmount, 3, 0, Math.PI * 2);
             ctx.fill();
-        } else {
+            
+            // Static arm on other side
+            ctx.strokeStyle = color.body;
             ctx.beginPath();
+            ctx.moveTo(screenX - 6, drawY + 5);
+            ctx.lineTo(screenX - 12, drawY + 8);
+            ctx.stroke();
+            
+            // Hand
+            ctx.fillStyle = '#FFD3B6';
+            ctx.beginPath();
+            ctx.arc(screenX - 12, drawY + 8, 3, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
             ctx.moveTo(screenX - 6, drawY + 5);
             ctx.lineTo(screenX - 15, drawY - waveAmount);
             ctx.stroke();
@@ -1118,7 +1535,45 @@ function drawSpectator(spectator) {
             ctx.beginPath();
             ctx.arc(screenX - 15, drawY - waveAmount, 3, 0, Math.PI * 2);
             ctx.fill();
+            
+            // Static arm on other side
+            ctx.strokeStyle = color.body;
+            ctx.beginPath();
+            ctx.moveTo(screenX + 6, drawY + 5);
+            ctx.lineTo(screenX + 12, drawY + 8);
+            ctx.stroke();
+            
+            // Hand
+            ctx.fillStyle = '#FFD3B6';
+            ctx.beginPath();
+            ctx.arc(screenX + 12, drawY + 8, 3, 0, Math.PI * 2);
+            ctx.fill();
         }
+    } else {
+        // Both arms static if not waving
+        // Left arm
+        ctx.beginPath();
+        ctx.moveTo(screenX - 6, drawY + 5);
+        ctx.lineTo(screenX - 12, drawY + 8);
+        ctx.stroke();
+        
+        // Left hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(screenX - 12, drawY + 8, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Right arm
+        ctx.beginPath();
+        ctx.moveTo(screenX + 6, drawY + 5);
+        ctx.lineTo(screenX + 12, drawY + 8);
+        ctx.stroke();
+        
+        // Right hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(screenX + 12, drawY + 8, 3, 0, Math.PI * 2);
+        ctx.fill();
     }
     
     // Speech bubbles and cheers
