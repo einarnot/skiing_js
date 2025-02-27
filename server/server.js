@@ -6,7 +6,10 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Initialize Firestore
-const firestore = new Firestore();
+const firestore = new Firestore({
+  projectId: 'skiingjs', // Replace with your GCP project ID
+  keyFilename: './skiingjs-893ba64abde3.json', // Path to your key file
+});
 const highScoresCollection = firestore.collection('highscores');
 
 // Middleware to parse JSON requests
