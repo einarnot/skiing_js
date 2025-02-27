@@ -1183,50 +1183,30 @@ function renderStartScreen() {
     ctx.fillStyle = '#FFF';
     ctx.fillRect(0, CANVAS_HEIGHT - 20, CANVAS_WIDTH, 20);
 
-    ctx.fillStyle = '#000';
-    ctx.font = '28px Arial';
-    ctx.fillText('Cross-Country Skier Challenge', CANVAS_WIDTH / 2 - 170, CANVAS_HEIGHT / 2 - 140);
-    ctx.font = '18px Arial';
-    ctx.fillText('How to Play:', CANVAS_WIDTH / 2 - 50, CANVAS_HEIGHT / 2 - 100);
+    // Title
+    ctx.fillStyle = '#D00';
+    ctx.font = 'bold 40px Arial';
+    ctx.fillText('CROSS COUNTRY', CANVAS_WIDTH / 2 - 160, CANVAS_HEIGHT / 2 - 140);
+    ctx.fillText('OR DIE', CANVAS_WIDTH / 2 - 60, CANVAS_HEIGHT / 2 - 100);
     
-    // Better instructions with more detail
+    // Simple instructions
+    ctx.fillStyle = '#000';
     ctx.font = '16px Arial';
-    ctx.fillText('1. Alternate Left and Right arrow keys to ski forward', CANVAS_WIDTH / 2 - 190, CANVAS_HEIGHT / 2 - 70);
-    ctx.fillText('2. Follow the rhythm guide (black dot) for best speed', CANVAS_WIDTH / 2 - 190, CANVAS_HEIGHT / 2 - 40);
-    ctx.fillText('3. Watch the blue bar - it shows your rhythm quality', CANVAS_WIDTH / 2 - 190, CANVAS_HEIGHT / 2 - 10);
-    ctx.fillText('4. Press SPACE to jump over fallen skiers', CANVAS_WIDTH / 2 - 190, CANVAS_HEIGHT / 2 + 20);
-    ctx.fillText('5. Press DOWN ARROW to duck under bridges', CANVAS_WIDTH / 2 - 190, CANVAS_HEIGHT / 2 + 50);
-    ctx.fillText('6. Going faster makes timing more difficult!', CANVAS_WIDTH / 2 - 190, CANVAS_HEIGHT / 2 + 80);
+    ctx.fillText('← → Ski with rhythm', CANVAS_WIDTH / 2 - 90, CANVAS_HEIGHT / 2 - 40);
+    ctx.fillText('SPACE to jump', CANVAS_WIDTH / 2 - 90, CANVAS_HEIGHT / 2 - 10);
+    ctx.fillText('↓ to duck', CANVAS_WIDTH / 2 - 90, CANVAS_HEIGHT / 2 + 20);
 
     ctx.font = '20px Arial';
     ctx.fillStyle = '#0066FF';
-    ctx.fillText('Press SPACE to Start', CANVAS_WIDTH / 2 - 90, CANVAS_HEIGHT / 2 + 120);
+    ctx.fillText('Press SPACE to Start', CANVAS_WIDTH / 2 - 90, CANVAS_HEIGHT / 2 + 80);
     
     ctx.fillStyle = '#000';
     ctx.font = '16px Arial';
-    ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH / 2 - 50, CANVAS_HEIGHT / 2 + 150);
-    
-    // Draw demo rhythm guide
-    ctx.fillStyle = '#666';
-    ctx.fillText('Rhythm guide:', 100, 300);
-    ctx.fillRect(100, 310, 200, 10);
-    
-    // Simulate the rhythm marker
-    const time = Date.now() / 1000;
-    const marker = 100 + (Math.sin(time * 1.5) * 100 + 100) / 2;
-    ctx.fillStyle = "rgba(0,0,0,0.7)";
-    ctx.beginPath();
-    ctx.arc(marker, 315, 5, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.fillStyle = '#666';
-    ctx.fillText('← Tap when dot is here', 100, 340);
-    ctx.fillText('Tap opposite arrow when dot reaches other side →', 100, 360);
-    
-    // Draw the obstacle types
-    // Fallen skier
+    ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH / 2 - 50, CANVAS_HEIGHT / 2 + 120);
+
+    // Draw simple examples
     ctx.save();
-    ctx.translate(600, 300);
+    ctx.translate(CANVAS_WIDTH / 2 - 150, CANVAS_HEIGHT / 2 + 20);
     ctx.scale(0.8, 0.8);
     const fallenSkierDemo = {
         type: 'skier',
@@ -1239,24 +1219,83 @@ function renderStartScreen() {
     };
     drawFallenSkier(fallenSkierDemo);
     ctx.restore();
-    ctx.fillText('Jump over fallen skiers (SPACE)', 550, 340);
     
-    // Bridge
+    // Draw a small skull as a teaser
+    drawSkull(CANVAS_WIDTH / 2 + 130, CANVAS_HEIGHT / 2 + 20, 15);
+}
+
+// Draw a skull
+function drawSkull(x, y, size) {
+    // Save context for transformations
     ctx.save();
-    ctx.translate(600, 380);
-    ctx.scale(0.8, 0.8);
-    const bridgeDemo = {
-        type: 'bridge',
-        worldX: worldX,
-        y: 0,
-        width: 80,
-        height: 20,
-        bridgeHeight: 20,
-        clearance: 30
-    };
-    drawBridge(bridgeDemo);
+    
+    // Skull color
+    const skullColor = '#FFFFFF';
+    const outlineColor = '#000000';
+    
+    // Head
+    ctx.fillStyle = skullColor;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = size / 10;
+    ctx.stroke();
+    
+    // Eyes
+    ctx.fillStyle = '#000000';
+    const eyeSize = size / 4;
+    const eyeOffset = size / 3;
+    
+    // Left eye
+    ctx.beginPath();
+    ctx.arc(x - eyeOffset, y - eyeOffset/2, eyeSize, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Right eye
+    ctx.beginPath();
+    ctx.arc(x + eyeOffset, y - eyeOffset/2, eyeSize, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Nose
+    ctx.beginPath();
+    ctx.arc(x, y, eyeSize * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Teeth
+    ctx.fillStyle = skullColor;
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = size / 20;
+    
+    // Jaw
+    ctx.beginPath();
+    ctx.arc(x, y + size/3, size/2, 0, Math.PI);
+    ctx.stroke();
+    
+    // Teeth lines
+    const teethWidth = size / 8;
+    for (let i = -2; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(x + i * teethWidth, y + size/3);
+        ctx.lineTo(x + i * teethWidth, y + size/1.8);
+        ctx.stroke();
+    }
+    
+    // Crossbones (if large enough)
+    if (size > 10) {
+        ctx.lineWidth = size / 10;
+        ctx.beginPath();
+        ctx.moveTo(x - size, y + size);
+        ctx.lineTo(x + size, y + size * 2);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(x + size, y + size);
+        ctx.lineTo(x - size, y + size * 2);
+        ctx.stroke();
+    }
+    
     ctx.restore();
-    ctx.fillText('Duck under bridges (DOWN ARROW)', 550, 420);
 }
 
 // Game over
@@ -1269,18 +1308,26 @@ function gameOver() {
     
     // Add a slight delay before showing game over screen
     setTimeout(() => {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.fillRect(CANVAS_WIDTH / 2 - 200, CANVAS_HEIGHT / 2 - 70, 400, 140);
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // Draw large skull
+        drawSkull(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 70, 50);
+        
+        ctx.fillStyle = '#D00';
+        ctx.font = 'bold 40px Arial';
+        ctx.fillText('YOU DIED', CANVAS_WIDTH / 2 - 90, CANVAS_HEIGHT / 2 + 20);
         
         ctx.fillStyle = '#FFF';
-        ctx.font = '36px Arial';
-        ctx.fillText(`Game Over! Score: ${score}`, CANVAS_WIDTH / 2 - 150, CANVAS_HEIGHT / 2 - 20);
         ctx.font = '24px Arial';
-        ctx.fillText('Press SPACE or Click to Restart', CANVAS_WIDTH / 2 - 160, CANVAS_HEIGHT / 2 + 20);
+        ctx.fillText(`Score: ${score}`, CANVAS_WIDTH / 2 - 50, CANVAS_HEIGHT / 2 + 60);
+        
+        ctx.font = '20px Arial';
+        ctx.fillText('Press SPACE or Click to Restart', CANVAS_WIDTH / 2 - 160, CANVAS_HEIGHT / 2 + 100);
         
         if (score > highScore - 1) {
             ctx.fillStyle = '#FFFF00';
-            ctx.fillText('NEW HIGH SCORE!', CANVAS_WIDTH / 2 - 110, CANVAS_HEIGHT / 2 + 60);
+            ctx.fillText('NEW HIGH SCORE!', CANVAS_WIDTH / 2 - 110, CANVAS_HEIGHT / 2 + 140);
         }
     }, 500);
 }
