@@ -46,6 +46,11 @@ let obstacles = [];
 const SPAWN_INTERVAL = 120;
 let spawnTimer = 0;
 
+// Spectators
+let spectators = [];
+const SPECTATOR_SPAWN_INTERVAL = 80;
+let spectatorSpawnTimer = 0;
+
 // Initialize game
 function init() {
     console.log("Game initializing");
@@ -214,6 +219,8 @@ function startGame() {
     lastKeyTime = Date.now();
     obstacles = [];
     spawnTimer = 0;
+    spectators = [];
+    spectatorSpawnTimer = 0;
     feedbackActive = false;
     gameLoop();
     
@@ -256,6 +263,7 @@ function showRhythmFeedback(isGood) {
 function update() {
     updateSkier();
     updateObstacles();
+    updateSpectators();
     checkCollisions();
 
     // Always move forward (even if slowly when no rhythm)
@@ -340,15 +348,29 @@ function updateObstacles() {
             });
         } else {
             // Create bridge obstacles (need to duck under)
-            obstacles.push({
+            const bridge = {
                 type: 'bridge',
                 worldX: worldX + CANVAS_WIDTH + Math.random() * 300,
                 y: CANVAS_HEIGHT - 105, // Higher than ground but lower for hockey duck
                 width: 120,  // Wide bridge
                 height: 50,  // Low clearance - need to duck
                 bridgeHeight: 50 + Math.random() * 10, // Variable height
-                clearance: 50 // Space under bridge
-            });
+                clearance: 50, // Space under bridge
+                spectators: [] // People cheering on the bridge
+            };
+            
+            // Add spectators on the bridge
+            const numSpectators = 2 + Math.floor(Math.random() * 3); // 2-4 spectators
+            for (let i = 0; i < numSpectators; i++) {
+                bridge.spectators.push({
+                    position: i / (numSpectators - 1), // 0 to 1 position along bridge
+                    animationOffset: Math.random() * 100, // Varied animation timing
+                    waving: Math.random() > 0.3, // Some are waving
+                    color: Math.floor(Math.random() * 6) // Different colored outfits
+                });
+            }
+            
+            obstacles.push(bridge);
         }
         spawnTimer = 0;
     }
@@ -358,6 +380,37 @@ function updateObstacles() {
     
     // Remove obstacles that are far behind
     obstacles = obstacles.filter(obstacle => obstacle.worldX > worldX - 150);
+}
+
+// Update spectators along the route
+function updateSpectators() {
+    spectatorSpawnTimer++;
+    if (spectatorSpawnTimer >= SPECTATOR_SPAWN_INTERVAL) {
+        // Randomly spawn spectators on the sides
+        const side = Math.random() > 0.5 ? 'left' : 'right';
+        const distance = side === 'left' ? -50 - Math.random() * 100 : CANVAS_WIDTH + Math.random() * 100;
+        
+        // Create a spectator with random properties
+        spectators.push({
+            type: 'spectator',
+            worldX: worldX + distance,
+            y: CANVAS_HEIGHT - 40 - Math.random() * 20, // Varied height on ground
+            side: side,
+            waving: Math.random() > 0.3, // Some are waving
+            jumping: Math.random() > 0.7, // Some are jumping with excitement
+            animationOffset: Math.random() * 100, // Different animation timing
+            color: Math.floor(Math.random() * 6), // Different colored outfits
+            animationSpeed: 0.5 + Math.random() * 1 // Different animation speeds
+        });
+        
+        spectatorSpawnTimer = 0;
+    }
+    
+    // Move spectators at a speed relative to player's speed
+    spectators.forEach(spectator => spectator.worldX -= 2 + skier.speed * 0.2);
+    
+    // Remove spectators that are far behind
+    spectators = spectators.filter(spectator => spectator.worldX > worldX - 400);
 }
 
 // Check collisions
@@ -411,9 +464,14 @@ function render() {
     try {
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
-        // Background
-        ctx.fillStyle = '#E0F7FA';
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        // Sky background
+        const skyGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT - 20);
+        skyGradient.addColorStop(0, '#87CEEB'); // Sky blue
+        skyGradient.addColorStop(1, '#E0F7FA'); // Lighter near horizon
+        ctx.fillStyle = skyGradient;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT - 20);
+        
+        // Snow ground
         ctx.fillStyle = '#FFF';
         ctx.fillRect(0, CANVAS_HEIGHT - 20, CANVAS_WIDTH, 20);
         
@@ -464,6 +522,19 @@ function render() {
             ctx.fillStyle = '#F00';
             ctx.fillText('JUMPING', CANVAS_WIDTH - 100, 100);
         }
+        
+        // Draw background spectators (furthest from the track)
+        spectators.forEach(spectator => {
+            try {
+                const spectatorScreenX = spectator.worldX - worldX;
+                // Only draw if in visible range and far from the track
+                if (spectatorScreenX >= -50 && spectatorScreenX <= CANVAS_WIDTH + 50) {
+                    drawSpectator(spectator);
+                }
+            } catch (error) {
+                console.error("Error drawing spectator:", error);
+            }
+        });
     
         // Obstacles (behind skier)
         obstacles.forEach(obstacle => {
@@ -871,6 +942,218 @@ function drawBridge(obstacle) {
     for (let i = 10; i < obstacle.width; i += 20) {
         ctx.fillRect(screenX + i, obstacle.y - 15, 5, 15);
     }
+    
+    // Draw spectators on the bridge
+    if (obstacle.spectators && obstacle.spectators.length > 0) {
+        obstacle.spectators.forEach(spectator => {
+            // Calculate position along the bridge
+            const posX = screenX + spectator.position * obstacle.width;
+            const posY = obstacle.y - 20; // Stand on top of bridge
+            
+            // Draw the spectator
+            drawBridgeSpectator(posX, posY, spectator);
+        });
+    }
+}
+
+// Draw spectator on bridge
+function drawBridgeSpectator(x, y, spectator) {
+    ctx.save();
+    
+    // Animation based on time and offset
+    const time = Date.now() / 200 + spectator.animationOffset;
+    const bobAmount = Math.sin(time * 0.3) * 2;
+    const waveAmount = spectator.waving ? Math.sin(time * 0.5) * 15 : 0;
+    
+    // Colors based on spectator.color (0-5)
+    const colors = [
+        { body: '#F00', head: '#FFC107' }, // Red jacket, yellow hat
+        { body: '#3F51B5', head: '#F44336' }, // Blue jacket, red hat
+        { body: '#4CAF50', head: '#9C27B0' }, // Green jacket, purple hat
+        { body: '#FF9800', head: '#2196F3' }, // Orange jacket, blue hat
+        { body: '#9C27B0', head: '#4CAF50' }, // Purple jacket, green hat
+        { body: '#607D8B', head: '#FF9800' }  // Gray jacket, orange hat
+    ];
+    
+    const color = colors[spectator.color % colors.length];
+    
+    // Apply bobbing animation
+    y += bobAmount;
+    
+    // Draw body
+    ctx.fillStyle = color.body;
+    ctx.fillRect(x - 5, y, 10, 15);
+    
+    // Draw head
+    ctx.fillStyle = '#FFD3B6'; // Skin tone
+    ctx.beginPath();
+    ctx.arc(x, y - 5, 5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw hat
+    ctx.fillStyle = color.head;
+    ctx.beginPath();
+    ctx.arc(x, y - 7, 4, 0, Math.PI, true);
+    ctx.fill();
+    
+    // Draw waving arm if applicable
+    if (spectator.waving) {
+        ctx.strokeStyle = color.body;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x + 4, y + 3);
+        ctx.lineTo(x + 8, y - waveAmount);
+        ctx.stroke();
+        
+        // Hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x + 8, y - waveAmount, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    // Draw a speech bubble occasionally
+    if ((time % 100) < 10) {
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(x + 10, y - 10, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        
+        // Exclamation point
+        ctx.fillStyle = '#000';
+        ctx.font = '8px Arial';
+        ctx.fillText("!", x + 8, y - 8);
+    }
+    
+    ctx.restore();
+}
+
+// Draw spectator along the route
+function drawSpectator(spectator) {
+    ctx.save();
+    
+    const screenX = spectator.worldX - worldX;
+    const y = spectator.y;
+    
+    // Animation timing
+    const time = Date.now() / 200 + spectator.animationOffset;
+    
+    // Jumping animation
+    let jumpOffset = 0;
+    if (spectator.jumping) {
+        jumpOffset = Math.abs(Math.sin(time * spectator.animationSpeed)) * 10;
+    }
+    
+    // Bobbing animation
+    const bobAmount = Math.sin(time * 0.3) * 2;
+    
+    // Waving animation
+    const waveAmount = spectator.waving ? Math.sin(time * 0.5) * 15 : 0;
+    
+    // Colors based on spectator.color (0-5)
+    const colors = [
+        { body: '#F00', head: '#FFC107' }, // Red jacket, yellow hat
+        { body: '#3F51B5', head: '#F44336' }, // Blue jacket, red hat
+        { body: '#4CAF50', head: '#9C27B0' }, // Green jacket, purple hat
+        { body: '#FF9800', head: '#2196F3' }, // Orange jacket, blue hat
+        { body: '#9C27B0', head: '#4CAF50' }, // Purple jacket, green hat
+        { body: '#607D8B', head: '#FF9800' }  // Gray jacket, orange hat
+    ];
+    
+    const color = colors[spectator.color % colors.length];
+    
+    // Apply animations
+    const drawY = y - jumpOffset + bobAmount;
+    
+    // Draw body
+    ctx.fillStyle = color.body;
+    ctx.fillRect(screenX - 6, drawY, 12, 20);
+    
+    // Draw legs
+    ctx.fillStyle = '#333';
+    ctx.fillRect(screenX - 5, drawY + 20, 4, 10);
+    ctx.fillRect(screenX + 1, drawY + 20, 4, 10);
+    
+    // Draw head
+    ctx.fillStyle = '#FFD3B6'; // Skin tone
+    ctx.beginPath();
+    ctx.arc(screenX, drawY - 5, 6, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw hat
+    ctx.fillStyle = color.head;
+    ctx.beginPath();
+    ctx.arc(screenX, drawY - 8, 5, 0, Math.PI, true);
+    ctx.fill();
+    
+    // Draw waving arm if applicable
+    if (spectator.waving) {
+        // Draw arm
+        ctx.strokeStyle = color.body;
+        ctx.lineWidth = 3;
+        
+        // Left or right side determines which arm waves
+        if (spectator.side === 'left') {
+            ctx.beginPath();
+            ctx.moveTo(screenX + 6, drawY + 5);
+            ctx.lineTo(screenX + 15, drawY - waveAmount);
+            ctx.stroke();
+            
+            // Hand
+            ctx.fillStyle = '#FFD3B6';
+            ctx.beginPath();
+            ctx.arc(screenX + 15, drawY - waveAmount, 3, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            ctx.beginPath();
+            ctx.moveTo(screenX - 6, drawY + 5);
+            ctx.lineTo(screenX - 15, drawY - waveAmount);
+            ctx.stroke();
+            
+            // Hand
+            ctx.fillStyle = '#FFD3B6';
+            ctx.beginPath();
+            ctx.arc(screenX - 15, drawY - waveAmount, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    // Speech bubbles and cheers
+    if ((time % 150) < 15) {
+        // Create speech bubble
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        
+        // Position based on side
+        const bubbleX = spectator.side === 'left' ? screenX + 15 : screenX - 15;
+        ctx.arc(bubbleX, drawY - 15, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+        
+        // Random cheer type
+        const cheerType = Math.floor(time / 10) % 4;
+        ctx.fillStyle = '#000';
+        ctx.font = '9px Arial';
+        let cheerText = "!";
+        
+        switch(cheerType) {
+            case 0: cheerText = "!"; break;
+            case 1: cheerText = "GO!"; break;
+            case 2: cheerText = "WOW"; break;
+            case 3: cheerText = "♥"; break;
+        }
+        
+        // Position text in bubble
+        const textX = spectator.side === 'left' ? bubbleX - 3 : bubbleX - 5;
+        ctx.fillText(cheerText, textX, drawY - 12);
+    }
+    
+    ctx.restore();
 }
 
 // Draw obstacle based on type
