@@ -386,10 +386,16 @@ function updateObstacles() {
 function updateSpectators() {
     spectatorSpawnTimer++;
     if (spectatorSpawnTimer >= SPECTATOR_SPAWN_INTERVAL) {
-        // Randomly spawn spectator groups on the sides
+        // Randomly spawn spectator groups on the sides, further away from player
         const side = Math.random() > 0.5 ? 'left' : 'right';
-        const baseDistance = side === 'left' ? -50 - Math.random() * 100 : CANVAS_WIDTH + Math.random() * 100;
-        const baseY = CANVAS_HEIGHT - 40 - Math.random() * 20; // Base height on ground
+        
+        // Much greater distance from center to keep spectators in the background
+        const baseDistance = side === 'left' 
+            ? -150 - Math.random() * 200  // Left side, further away
+            : CANVAS_WIDTH + Math.random() * 200;  // Right side, further away
+            
+        // Position higher in the scene to create background depth effect
+        const baseY = CANVAS_HEIGHT - 90; // Higher up on the snow surface
         
         // Create a group of 3-5 spectators
         const groupSize = 3 + Math.floor(Math.random() * 3);
@@ -506,15 +512,15 @@ function render() {
         ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     
         // Sky background
-        const skyGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT - 20);
+        const skyGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT - 60); // Increased snow area
         skyGradient.addColorStop(0, '#87CEEB'); // Sky blue
         skyGradient.addColorStop(1, '#E0F7FA'); // Lighter near horizon
         ctx.fillStyle = skyGradient;
-        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT - 20);
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT - 60); // Increased snow area
         
-        // Snow ground
+        // Snow ground - increased from 20px to 60px
         ctx.fillStyle = '#FFF';
-        ctx.fillRect(0, CANVAS_HEIGHT - 20, CANVAS_WIDTH, 20);
+        ctx.fillRect(0, CANVAS_HEIGHT - 60, CANVAS_WIDTH, 60);
         
         // Show any errors on screen
         if (gameErrors.length > 0) {
@@ -568,8 +574,15 @@ function render() {
         spectators.forEach(spectator => {
             try {
                 const spectatorScreenX = spectator.worldX - worldX;
-                // Only draw if in visible range and far from the track
-                if (spectatorScreenX >= -100 && spectatorScreenX <= CANVAS_WIDTH + 100) {
+                // Extended visible range to prevent sudden appearance/disappearance
+                if (spectatorScreenX >= -300 && spectatorScreenX <= CANVAS_WIDTH + 300) {
+                    // Always update screen position for consistent rendering
+                    spectator.screenX = spectatorScreenX;
+                    
+                    // Position spectators much higher in the background away from player's path
+                    // Place them on the snow (not floating) but visually in background
+                    spectator.y = CANVAS_HEIGHT - 90; // Higher up in scene (on snow, but background)
+                    
                     if (spectator.type === 'spectator_group') {
                         drawSpectatorGroup(spectator);
                     } else {
@@ -1406,18 +1419,6 @@ function drawGroupMember(x, y, member, side) {
     
     // Speech bubbles and cheers
     if ((time % 150) < 15) {
-        // Create speech bubble
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
-        
-        // Position based on side
-        const bubbleX = side === 'left' ? x + 15 : x - 15;
-        ctx.arc(bubbleX, drawY - 15, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
-        
         // Random cheer type
         const cheerType = Math.floor(time / 10) % 4;
         ctx.fillStyle = '#000';
@@ -1430,6 +1431,17 @@ function drawGroupMember(x, y, member, side) {
             case 2: cheerText = "WOW"; break;
             case 3: cheerText = "♥"; break;
         }
+
+        // Create speech bubble
+        const textWidth = ctx.measureText(cheerText).width;
+        const bubbleX = side === 'left' ? x + 15 : x - 15;
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(bubbleX, drawY - 15, textWidth / 2 + 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
         
         // Position text in bubble
         const textX = side === 'left' ? bubbleX - 3 : bubbleX - 5;
