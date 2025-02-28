@@ -63,7 +63,7 @@ const restrictToDomain = (req, res, next) => {
   const normalizedOrigin = origin ? origin.replace(/\/$/, '') : '';
 
   if (!normalizedOrigin || normalizedOrigin !== allowedOrigin) {
-    return res.status(403).json({ error: 'Access denied: Unauthorized origin' });
+    return res.status(403).json({ error: 'Access denied: Unauthorized' });
   }
   next();
 };
