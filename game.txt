@@ -3,23 +3,13 @@ const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 400;
 const SKIER_VERTICAL_OFFSET = 65;
 const FPS = 60;
-const SERVER_URL = 'https://skiingjs.appspot.com';
-const API_KEY = 'API_KEY_PLACEHOLDER'; // API key for server authentication
 
 // Game variables
 let canvas, ctx;
+let gameRunning = false;
 let score = 0;
+let highScore = localStorage.getItem('highScore') ? parseInt(localStorage.getItem('highScore')) : 0;
 let worldX = 0;
-let highScores = [];
-
-// Game state management
-const GameScreen = {
-  START: 'start',
-  PLAYING: 'playing',
-  GAME_OVER: 'gameOver'
-};
-
-let currentScreen = GameScreen.START;
 
 // Skier properties
 let skier = {
@@ -62,7 +52,7 @@ const SPECTATOR_SPAWN_INTERVAL = 80;
 let spectatorSpawnTimer = 0;
 
 // Initialize game
-async function init() {
+function init() {
     console.log("Game initializing");
     
     // Make sure MIN_RHYTHM_TOLERANCE is defined
@@ -89,13 +79,6 @@ async function init() {
         rhythmTolerance = BASE_RHYTHM_TOLERANCE;
         feedbackActive = false;
         
-        // Fetch high scores from server
-        try {
-            await fetchHighScores();
-        } catch (error) {
-            console.error("Error fetching high scores:", error);
-        }
-        
         // Add event listeners for both keydown and click (for mobile/touch support)
         document.addEventListener('keydown', function(e) {
             console.log("Key pressed on document:", e.key, e.code);
@@ -107,24 +90,29 @@ async function init() {
             }
         });
         
-        // Listen for clicks on the canvas
+        // Listen for clicks on the canvas to start the game too
         canvas.addEventListener('click', function() {
-            console.log("Canvas clicked on screen:", currentScreen);
+            console.log("Canvas clicked");
             try {
-                if (currentScreen === GameScreen.START) {
-                    // On start screen, clicking the canvas starts the game
-                    console.log("Canvas clicked on start screen - starting game");
+                if (!gameRunning) {
                     startGame();
-                    return;
-                } 
-                else if (currentScreen === GameScreen.GAME_OVER) {
-                    // On game over screen, clicking goes back to start screen
-                    console.log("Canvas clicked on game over screen - returning to start");
-                    renderStartScreen();
-                    return;
                 }
             } catch (error) {
                 console.error("Error in canvas click handler:", error);
+                gameErrors.push(error.toString());
+            }
+        });
+        
+        // Special handler for the Space key
+        window.addEventListener('keydown', function(e) {
+            console.log("Key pressed on window:", e.key, e.code);
+            try {
+                if (!gameRunning && (e.key === ' ' || e.code === 'Space')) {
+                    console.log("Space key detected - starting game");
+                    startGame();
+                }
+            } catch (error) {
+                console.error("Error in keydown handler:", error);
                 gameErrors.push(error.toString());
             }
         });
@@ -133,27 +121,9 @@ async function init() {
         document.body.addEventListener('click', function(e) {
             console.log("Body clicked");
             try {
-                // Don't handle clicks on buttons - they have their own handlers
-                if (e.target.tagName === 'BUTTON') {
-                    return;
-                }
-                
-                if (currentScreen !== GameScreen.PLAYING) {
-                    // Different behavior based on current screen
-                    if (currentScreen === GameScreen.START) {
-                        // On start screen, clicking outside the canvas starts the game
-                        if (e.target.id !== 'gameCanvas') {
-                            console.log("Body clicked on start screen - starting game");
-                            startGame();
-                        }
-                        return;
-                    } 
-                    else if (currentScreen === GameScreen.GAME_OVER) {
-                        // On game over screen, any click goes back to start screen
-                        console.log("Body clicked on game over screen - returning to start");
-                        renderStartScreen();
-                        return;
-                    }
+                if (!gameRunning && e.target.id !== 'startButton') {
+                    // Only trigger if not clicking the start button (which has its own handler)
+                    startGame();
                 }
             } catch (error) {
                 console.error("Error in body click handler:", error);
@@ -182,35 +152,14 @@ function handleKeyDown(event) {
     const currentTime = Date.now();
 
     // Debug log to see what key was pressed
-    console.log("Key pressed:", event.key, "Current screen:", currentScreen);
+    console.log("Key pressed:", event.key, "Game running:", gameRunning);
 
-    if (currentScreen !== GameScreen.PLAYING) {
-        // Space key handling (either start the game or return to main screen)
-        if (event.key === ' ' || event.code === 'Space') {
-            // Different behavior based on current screen
-            if (currentScreen === GameScreen.START) {
-                // On start screen - start the game
-                console.log("Space key pressed on start screen - starting game");
-                startGame();
-                return;
-            } 
-            else if (currentScreen === GameScreen.GAME_OVER) {
-                // On game over screen - return to start screen
-                console.log("Space key pressed on game over screen - returning to start");
-                renderStartScreen();
-                return;
-            }
-        }
-        
-        // L key for leaderboard functions
-        if (event.key === 'l' || event.key === 'L') {
-            console.log("L key pressed - viewing leaderboard");
-            showFullLeaderboard();
-            return;
-        }
-        
+    if (!gameRunning && (event.key === ' ' || event.code === 'Space')) {
+        startGame();
         return;
     }
+
+    if (!gameRunning) return;
 
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         const timeDiff = currentTime - lastKeyTime;
@@ -258,7 +207,7 @@ function handleKeyDown(event) {
 // Start the game
 function startGame() {
     console.log("startGame function called");
-    currentScreen = GameScreen.PLAYING;
+    gameRunning = true;
     score = 0;
     worldX = 0;
     skier.y = CANVAS_HEIGHT - SKIER_VERTICAL_OFFSET;
@@ -287,7 +236,7 @@ window.gameStartFunction = startGame;
 
 // Game loop
 function gameLoop() {
-    if (currentScreen !== GameScreen.PLAYING) return;
+    if (!gameRunning) return;
 
     update();
     render();
@@ -682,12 +631,7 @@ function render() {
         ctx.fillStyle = '#000';
         ctx.font = '24px Arial';
         ctx.fillText(`Score: ${score}`, 10, 30);
-        
-        // Display highest score if available
-        if (highScores.length > 0) {
-            const highestScore = Math.max(...highScores.map(score => score.score));
-            ctx.fillText(`High Score: ${highestScore}`, 10, 60);
-        }
+        ctx.fillText(`High Score: ${highScore}`, 10, 60);
         
         // Current speed indicator
         ctx.fillText(`Speed: ${Math.floor(skier.speed * 10)}`, 10, 90);
@@ -1984,9 +1928,6 @@ function drawFallenSkier(obstacle) {
 
 // Render start screen with detailed instructions
 function renderStartScreen() {
-    // Update game state
-    currentScreen = GameScreen.START;
-    
     ctx.fillStyle = '#E0F7FA';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.fillStyle = '#FFF';
@@ -2008,6 +1949,10 @@ function renderStartScreen() {
     ctx.font = '20px Arial';
     ctx.fillStyle = '#0066FF';
     ctx.fillText('Press SPACE to Start', CANVAS_WIDTH / 2 - 90, CANVAS_HEIGHT / 2 + 80);
+    
+    ctx.fillStyle = '#000';
+    ctx.font = '16px Arial';
+    ctx.fillText(`High Score: ${highScore}`, CANVAS_WIDTH / 2 - 50, CANVAS_HEIGHT / 2 + 120);
 
     // Draw simple examples
     ctx.save();
@@ -2027,36 +1972,6 @@ function renderStartScreen() {
     
     // Draw a small skull as a teaser
     drawSkull(CANVAS_WIDTH / 2 + 130, CANVAS_HEIGHT / 2 + 20, 15);
-    
-    // Draw leaderboard
-    drawLeaderboard();
-    
-    // Make sure start button is visible
-    const startButton = document.getElementById('startButton');
-    if (startButton) {
-        startButton.style.display = 'block';
-    }
-}
-
-// Draw leaderboard
-function drawLeaderboard() {
-    if (highScores.length === 0) return;
-    
-    const leaderboardX = CANVAS_WIDTH - 200;
-    const leaderboardY = 30;
-    
-    // Leaderboard header
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 16px Arial';
-    ctx.fillText('LEADERBOARD', leaderboardX, leaderboardY);
-    
-    // Leaderboard entries (top 10)
-    ctx.font = '14px Arial';
-    
-    highScores.forEach((score, index) => {
-        const y = leaderboardY + 25 + (index * 20);
-        ctx.fillText(`${index + 1}. ${score.name}: ${score.score}`, leaderboardX, y);
-    });
 }
 
 // Draw a skull
@@ -2133,230 +2048,13 @@ function drawSkull(x, y, size) {
     ctx.restore();
 }
 
-// Fetch high scores from server
-async function fetchHighScores() {
-    try {
-        const response = await fetch(`${SERVER_URL}/highscores`, {
-            headers: {
-                'X-API-Key': API_KEY
-            }
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to fetch high scores: ${response.status}`);
-        }
-        const data = await response.json();
-        highScores = data;
-        console.log('Fetched high scores:', highScores);
-        return data;
-    } catch (error) {
-        console.error('Error fetching high scores:', error);
-        return [];
-    }
-}
-
-// Asynchronously load bad words from server
-let badWordsCache = null;
-
-async function loadBadWords() {
-    if (badWordsCache) {
-        return badWordsCache;
-    }
-    
-    try {
-        // Load English and Norwegian bad words
-        const enResponse = await fetch(`${SERVER_URL}/badwords/en.txt?api_key=${API_KEY}`);
-        const noResponse = await fetch(`${SERVER_URL}/badwords/no.txt?api_key=${API_KEY}`);
-        
-        if (!enResponse.ok || !noResponse.ok) {
-            throw new Error('Failed to load bad words lists');
-        }
-        
-        const enText = await enResponse.text();
-        const noText = await noResponse.text();
-        
-        // Split by newlines and filter empty lines
-        const enWords = enText.split('\n').filter(word => word.trim() !== '');
-        const noWords = noText.split('\n').filter(word => word.trim() !== '');
-        
-        // Combine both lists
-        badWordsCache = [...enWords, ...noWords];
-        return badWordsCache;
-    } catch (error) {
-        console.error('Error loading bad words:', error);
-        // Fallback to a minimal list if server files can't be loaded
-        return [
-            'fuck', 'shit', 'ass', 'bitch', 'cunt', 'dick', 'cock', 'pussy', 
-            'whore', 'slut', 'bastard', 'damn', 'hell', 'piss', 'crap', 'fag',
-            'nazi', 'kill', 'murder', 'rape', 'terrorist', 'hitler', 'penis'
-        ];
-    }
-}
-
-// Function to check if name contains any bad words
-async function containsBadWords(name) {
-    // Get bad words list
-    const badWords = await loadBadWords();
-    
-    // Convert to lowercase for case-insensitive check
-    const lowercaseName = name.toLowerCase();
-    
-    // Check if any bad word is contained in the name
-    return badWords.some(word => lowercaseName.includes(word.toLowerCase()));
-}
-
-// Sanitize name input to prevent injection attacks
-function sanitizeName(name) {
-    // Remove HTML tags, script tags, and other potentially dangerous characters
-    let sanitized = name
-        .replace(/<\/?[^>]+(>|$)/g, "") // Remove HTML tags
-        .replace(/[<>'"&;]/g, "")       // Remove special characters
-        .trim();                        // Remove leading/trailing whitespace
-    
-    // Limit to 20 characters max
-    sanitized = sanitized.substring(0, 20);
-    
-    return sanitized;
-}
-
-// Get a valid player name with validation and sanitization
-async function getValidPlayerName(promptMessage) {
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    while (attempts < maxAttempts) {
-        const name = prompt(promptMessage, "");
-        attempts++;
-        
-        // User clicked cancel
-        if (name === null) {
-            return null;
-        }
-        
-        // Empty name
-        if (!name.trim()) {
-            alert("Please enter a name.");
-            continue;
-        }
-        
-        // Check name length
-        if (name.length > 20) {
-            alert("Name must be 20 characters or less.");
-            continue;
-        }
-        
-        // Check for bad words - now async
-        if (await containsBadWords(name)) {
-            alert("Please use appropriate language for your name.");
-            continue;
-        }
-        
-        // If we got here, name is valid - sanitize and return it
-        return sanitizeName(name);
-    }
-    
-    // If we reached max attempts, use a default name
-    alert("Using default name due to validation issues.");
-    return "Player" + Math.floor(Math.random() * 1000);
-}
-
-// Submit score to server
-async function submitScore(name, score) {
-    try {
-        // Final sanitization before sending to server
-        const sanitizedName = sanitizeName(name);
-        
-        const response = await fetch(`${SERVER_URL}/highscores`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key': API_KEY
-            },
-            body: JSON.stringify({ 
-                name: sanitizedName, 
-                score: score 
-            }),
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Failed to submit score: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Score submitted successfully:', data);
-        
-        // Refresh high scores
-        await fetchHighScores();
-        
-        return true;
-    } catch (error) {
-        console.error('Error submitting score:', error);
-        return false;
-    }
-}
-
-// Open submit score dialog
-function openSubmitDialog() {
-    if (score > 0) {
-        // Get and validate player name
-        getValidPlayerName(`You scored ${score}! Enter your name for the leaderboard (max 20 chars):`).then(name => {
-            if (name) {
-                submitScore(name, score);
-            }
-        });
-    } else {
-        // Show full leaderboard
-        showFullLeaderboard();
-    }
-}
-
-// Show full leaderboard modal
-function showFullLeaderboard() {
-    // Clear canvas
-    ctx.fillStyle = 'rgba(0,0,0,0.8)';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    
-    // Draw leaderboard title
-    ctx.fillStyle = '#FFF';
-    ctx.font = 'bold 30px Arial';
-    ctx.fillText('LEADERBOARD', CANVAS_WIDTH / 2 - 100, 50);
-    
-    // Draw scores
-    ctx.font = '18px Arial';
-    
-    if (highScores.length === 0) {
-        ctx.fillText('No scores yet. Be the first!', CANVAS_WIDTH / 2 - 100, 100);
-    } else {
-        // Show all 20 scores or however many exist
-        highScores.forEach((score, index) => {
-            // Calculate position - two columns if more than 10 scores
-            let x, y;
-            if (highScores.length > 10 && index >= 10) {
-                // Second column (scores 11-20)
-                x = CANVAS_WIDTH / 2 + 50;
-                y = 100 + ((index - 10) * 30);
-            } else {
-                // First column (scores 1-10)
-                x = CANVAS_WIDTH / 2 - 200;
-                y = 100 + (index * 30);
-            }
-            
-            const rank = index + 1;
-            const rankText = rank < 10 ? ` ${rank}` : rank;
-            ctx.fillText(`${rankText}. ${score.name}: ${score.score}`, x, y);
-        });
-    }
-    
-    // Draw close instructions
-    ctx.fillStyle = '#0066FF';
-    ctx.fillText('Press SPACE to close', CANVAS_WIDTH / 2 - 90, CANVAS_HEIGHT - 50);
-}
-
 // Game over
 function gameOver() {
-    currentScreen = GameScreen.GAME_OVER;
-    
-    // Check if this score is higher than any on the leaderboard
-    const isLeaderboardWorthy = highScores.length < 20 || score > highScores[highScores.length - 1]?.score;
+    gameRunning = false;
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+    }
     
     // Add a slight delay before showing game over screen
     setTimeout(() => {
@@ -2375,22 +2073,11 @@ function gameOver() {
         ctx.fillText(`Score: ${score}`, CANVAS_WIDTH / 2 - 50, CANVAS_HEIGHT / 2 + 60);
         
         ctx.font = '20px Arial';
-        ctx.fillText('Press SPACE to return to main menu', CANVAS_WIDTH / 2 - 160, CANVAS_HEIGHT / 2 + 100);
+        ctx.fillText('Press SPACE or Click to Restart', CANVAS_WIDTH / 2 - 160, CANVAS_HEIGHT / 2 + 100);
         
-        // Always display an instruction for the leaderboard
-        ctx.fillStyle = '#FFFF00';
-        ctx.fillText('Press L to view leaderboard', CANVAS_WIDTH / 2 - 160, CANVAS_HEIGHT / 2 + 180);
-        
-        // If score is worthy of leaderboard, automatically prompt for name
-        if (isLeaderboardWorthy && score > 100) {
-            setTimeout(() => {
-                // Get and validate player name
-                getValidPlayerName(`You scored ${score}! Enter your name for the leaderboard (max 20 chars):`).then(name => {
-                    if (name) {
-                        submitScore(name, score);
-                    }
-                });
-            }, 300);
+        if (score > highScore - 1) {
+            ctx.fillStyle = '#FFFF00';
+            ctx.fillText('NEW HIGH SCORE!', CANVAS_WIDTH / 2 - 110, CANVAS_HEIGHT / 2 + 140);
         }
     }, 500);
 }
