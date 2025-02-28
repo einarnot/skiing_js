@@ -1079,14 +1079,14 @@ function drawBridgeSpectator(x, y, spectator) {
     const bobAmount = Math.sin(time * 0.3) * 2;
     const waveAmount = spectator.waving ? Math.sin(time * 0.5) * 15 : 0;
     
-    // Colors based on spectator.color (0-5)
+    // Colors based on spectator.color (0-5) with country flags
     const colors = [
-        { body: '#F00', head: '#FFC107' }, // Red jacket, yellow hat
-        { body: '#3F51B5', head: '#F44336' }, // Blue jacket, red hat
-        { body: '#4CAF50', head: '#9C27B0' }, // Green jacket, purple hat
-        { body: '#FF9800', head: '#2196F3' }, // Orange jacket, blue hat
-        { body: '#9C27B0', head: '#4CAF50' }, // Purple jacket, green hat
-        { body: '#607D8B', head: '#FF9800' }  // Gray jacket, orange hat
+        { body: '#F00', head: '#FFC107', flag: ['#FF0000', '#FFFFFF', '#0000FF'] }, // Norway
+        { body: '#3F51B5', head: '#F44336', flag: ['#0000FF', '#FFFFFF', '#FF0000'] }, // France
+        { body: '#4CAF50', head: '#9C27B0', flag: ['#009900', '#FFFFFF', '#FF0000'] }, // Italy
+        { body: '#FF9800', head: '#2196F3', flag: ['#000000', '#FF0000', '#FFFF00'] }, // Germany
+        { body: '#9C27B0', head: '#4CAF50', flag: ['#0000FF', '#FFFF00', '#FF0000'] }, // Romania
+        { body: '#607D8B', head: '#FF9800', flag: ['#3C3B6E', '#FFFFFF', '#B22234'] }  // USA
     ];
     
     const color = colors[spectator.color % colors.length];
@@ -1110,89 +1110,90 @@ function drawBridgeSpectator(x, y, spectator) {
     ctx.arc(x, y - 7, 4, 0, Math.PI, true);
     ctx.fill();
     
-    // Draw right arm (always present)
+    // Draw flag for waving arm or static arms
     ctx.strokeStyle = color.body;
     ctx.lineWidth = 2;
     
-    // Right arm waving or static
     if (spectator.waving) {
-        const rightWaveAmount = waveAmount;
+        // Right arm with flag pole
+        const flagPoleLength = 25; // Large flag for bridge spectators
+        const flagWidth = 18;
+        const flagHeight = 12;
+        
+        // Draw waving arm with flag pole
         ctx.beginPath();
         ctx.moveTo(x + 4, y + 3);
-        ctx.lineTo(x + 8, y - rightWaveAmount);
+        ctx.lineTo(x + 8, y - waveAmount);
         ctx.stroke();
         
-        // Hand
-        ctx.fillStyle = '#FFD3B6';
+        // Draw flag pole
+        ctx.strokeStyle = '#8B4513'; // Brown pole
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(x + 8, y - rightWaveAmount, 2, 0, Math.PI * 2);
-        ctx.fill();
-    } else {
-        // Static right arm
-        ctx.beginPath();
-        ctx.moveTo(x + 4, y + 3);
-        ctx.lineTo(x + 8, y + 5);
+        ctx.moveTo(x + 8, y - waveAmount);
+        ctx.lineTo(x + 8 + flagPoleLength, y - waveAmount - 5);
         ctx.stroke();
         
-        // Hand
+        // Hand holding pole
         ctx.fillStyle = '#FFD3B6';
         ctx.beginPath();
-        ctx.arc(x + 8, y + 5, 2, 0, Math.PI * 2);
+        ctx.arc(x + 8, y - waveAmount, 2, 0, Math.PI * 2);
         ctx.fill();
-    }
-    
-    // Left arm (always present)
-    const leftWaveAmount = spectator.waving ? Math.sin((time + 50) * 0.5) * 10 : 0;
-    
-    if (spectator.waving) {
-        ctx.beginPath();
-        ctx.moveTo(x - 4, y + 3);
-        ctx.lineTo(x - 8, y - leftWaveAmount);
-        ctx.stroke();
         
-        // Hand
-        ctx.fillStyle = '#FFD3B6';
-        ctx.beginPath();
-        ctx.arc(x - 8, y - leftWaveAmount, 2, 0, Math.PI * 2);
-        ctx.fill();
-    } else {
+        // Flag - three colored stripes
+        const flagY = y - waveAmount - 5;
+        const flagX = x + 8 + 3; // Offset from pole
+        
+        // Draw flag horizontal stripes
+        const sectionHeight = flagHeight / 3;
+        for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = color.flag[i];
+            ctx.fillRect(flagX, flagY - flagHeight + (i * sectionHeight), flagWidth, sectionHeight);
+        }
+        
+        // Flag border
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(flagX, flagY - flagHeight, flagWidth, flagHeight);
+        
         // Static left arm
+        ctx.strokeStyle = color.body;
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(x - 4, y + 3);
         ctx.lineTo(x - 8, y + 5);
         ctx.stroke();
         
-        // Hand
+        // Left hand
         ctx.fillStyle = '#FFD3B6';
         ctx.beginPath();
         ctx.arc(x - 8, y + 5, 2, 0, Math.PI * 2);
         ctx.fill();
-    }
-    
-    // Draw a speech bubble occasionally
-    if ((time % 100) < 10) {
-        ctx.fillStyle = 'white';
+    } else {
+        // Static arms (no flag)
+        // Right arm
         ctx.beginPath();
-        ctx.arc(x + 10, y - 10, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 0.5;
+        ctx.moveTo(x + 4, y + 3);
+        ctx.lineTo(x + 8, y + 5);
         ctx.stroke();
         
-        // Different cheer options
-        const cheerType = Math.floor(time / 10) % 4;
-        ctx.fillStyle = '#000';
-        ctx.font = '8px Arial';
-        let cheerText = "!";
+        // Right hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x + 8, y + 5, 2, 0, Math.PI * 2);
+        ctx.fill();
         
-        switch(cheerType) {
-            case 0: cheerText = "!"; break;
-            case 1: cheerText = "GO"; break;
-            case 2: cheerText = "WOW"; break;
-            case 3: cheerText = "♥"; break;
-        }
+        // Left arm
+        ctx.beginPath();
+        ctx.moveTo(x - 4, y + 3);
+        ctx.lineTo(x - 8, y + 5);
+        ctx.stroke();
         
-        ctx.fillText(cheerText, cheerText.length > 1 ? x + 6 : x + 8, y - 8);
+        // Left hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x - 8, y + 5, 2, 0, Math.PI * 2);
+        ctx.fill();
     }
     
     ctx.restore();
@@ -1377,14 +1378,14 @@ function drawGroupMember(x, y, member, side) {
     // Bobbing animation
     const bobAmount = Math.sin(time * 0.3) * 2;
     
-    // Colors based on member.color (0-5)
+    // Colors based on member.color (0-5) with country flags
     const colors = [
-        { body: '#F00', head: '#FFC107' }, // Red jacket, yellow hat
-        { body: '#3F51B5', head: '#F44336' }, // Blue jacket, red hat
-        { body: '#4CAF50', head: '#9C27B0' }, // Green jacket, purple hat
-        { body: '#FF9800', head: '#2196F3' }, // Orange jacket, blue hat
-        { body: '#9C27B0', head: '#4CAF50' }, // Purple jacket, green hat
-        { body: '#607D8B', head: '#FF9800' }  // Gray jacket, orange hat
+        { body: '#F00', head: '#FFC107', flag: ['#FF0000', '#FFFFFF', '#0000FF'] }, // Norway
+        { body: '#3F51B5', head: '#F44336', flag: ['#0000FF', '#FFFFFF', '#FF0000'] }, // France
+        { body: '#4CAF50', head: '#9C27B0', flag: ['#009900', '#FFFFFF', '#FF0000'] }, // Italy
+        { body: '#FF9800', head: '#2196F3', flag: ['#000000', '#FF0000', '#FFFF00'] }, // Germany
+        { body: '#9C27B0', head: '#4CAF50', flag: ['#0000FF', '#FFFF00', '#FF0000'] }, // Romania
+        { body: '#607D8B', head: '#FF9800', flag: ['#3C3B6E', '#FFFFFF', '#B22234'] }  // USA
     ];
     
     const color = colors[member.color % colors.length];
@@ -1417,38 +1418,16 @@ function drawGroupMember(x, y, member, side) {
     ctx.strokeStyle = color.body;
     ctx.lineWidth = 3;
     
-    // LEFT ARM
-    // Left arm waving or static
-    if (member.waving && member.leftArmRaised) {
-        const leftWaveAmount = Math.sin(time * 0.5) * 15;
-        ctx.beginPath();
-        ctx.moveTo(x - 6, drawY + 5);
-        ctx.lineTo(x - 14, drawY - leftWaveAmount);
-        ctx.stroke();
-        
-        // Hand
-        ctx.fillStyle = '#FFD3B6';
-        ctx.beginPath();
-        ctx.arc(x - 14, drawY - leftWaveAmount, 3, 0, Math.PI * 2);
-        ctx.fill();
-    } else {
-        // Static left arm
-        ctx.beginPath();
-        ctx.moveTo(x - 6, drawY + 5);
-        ctx.lineTo(x - 12, drawY + 8);
-        ctx.stroke();
-        
-        // Hand
-        ctx.fillStyle = '#FFD3B6';
-        ctx.beginPath();
-        ctx.arc(x - 12, drawY + 8, 3, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    
-    // RIGHT ARM
-    // Right arm waving or static
+    // Right arm with flag if waving
     if (member.waving && member.rightArmRaised) {
         const rightWaveAmount = Math.sin((time + 50) * 0.5) * 15;
+        
+        // Flag pole size (smaller than bridge spectators)
+        const flagPoleLength = 18;
+        const flagWidth = 14;
+        const flagHeight = 10;
+        
+        // Draw arm holding flag
         ctx.beginPath();
         ctx.moveTo(x + 6, drawY + 5);
         ctx.lineTo(x + 14, drawY - rightWaveAmount);
@@ -1459,8 +1438,32 @@ function drawGroupMember(x, y, member, side) {
         ctx.beginPath();
         ctx.arc(x + 14, drawY - rightWaveAmount, 3, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Draw flag pole
+        ctx.strokeStyle = '#8B4513'; // Brown pole
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x + 14, drawY - rightWaveAmount);
+        ctx.lineTo(x + 14 + flagPoleLength, drawY - rightWaveAmount - 3);
+        ctx.stroke();
+        
+        // Flag - three colored stripes
+        const flagY = drawY - rightWaveAmount - 3;
+        const flagX = x + 14 + 2; // Offset from pole
+        
+        // Draw flag horizontal stripes
+        const sectionHeight = flagHeight / 3;
+        for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = color.flag[i];
+            ctx.fillRect(flagX, flagY - flagHeight + (i * sectionHeight), flagWidth, sectionHeight);
+        }
+        
+        // Flag border
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(flagX, flagY - flagHeight, flagWidth, flagHeight);
     } else {
-        // Static right arm
+        // Static right arm (no flag)
         ctx.beginPath();
         ctx.moveTo(x + 6, drawY + 5);
         ctx.lineTo(x + 12, drawY + 8);
@@ -1473,35 +1476,62 @@ function drawGroupMember(x, y, member, side) {
         ctx.fill();
     }
     
-    // Speech bubbles and cheers
-    if ((time % 150) < 15) {
-        // Random cheer type
-        const cheerType = Math.floor(time / 10) % 4;
-        ctx.fillStyle = '#000';
-        ctx.font = '9px Arial';
-        let cheerText = "!";
+    // Left arm with flag if waving
+    if (member.waving && member.leftArmRaised) {
+        const leftWaveAmount = Math.sin(time * 0.5) * 15;
         
-        switch(cheerType) {
-            case 0: cheerText = "!"; break;
-            case 1: cheerText = "GO!"; break;
-            case 2: cheerText = "WOW"; break;
-            case 3: cheerText = "♥"; break;
-        }
-
-        // Create speech bubble
-        const textWidth = ctx.measureText(cheerText).width;
-        const bubbleX = side === 'left' ? x + 15 : x - 15;
-        ctx.fillStyle = 'white';
+        // Flag pole size (smaller than bridge spectators)
+        const flagPoleLength = 18;
+        const flagWidth = 14;
+        const flagHeight = 10;
+        
+        // Draw arm holding flag
         ctx.beginPath();
-        ctx.arc(bubbleX, drawY - 15, textWidth / 2 + 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 0.5;
+        ctx.moveTo(x - 6, drawY + 5);
+        ctx.lineTo(x - 14, drawY - leftWaveAmount);
         ctx.stroke();
         
-        // Position text in bubble
-        const textX = side === 'left' ? bubbleX - 3 : bubbleX - 5;
-        ctx.fillText(cheerText, textX, drawY - 12);
+        // Hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x - 14, drawY - leftWaveAmount, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw flag pole
+        ctx.strokeStyle = '#8B4513'; // Brown pole
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x - 14, drawY - leftWaveAmount);
+        ctx.lineTo(x - 14 - flagPoleLength, drawY - leftWaveAmount - 3);
+        ctx.stroke();
+        
+        // Flag - three colored stripes
+        const flagY = drawY - leftWaveAmount - 3;
+        const flagX = x - 14 - 2 - flagWidth; // Offset from pole
+        
+        // Draw flag horizontal stripes
+        const sectionHeight = flagHeight / 3;
+        for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = color.flag[i];
+            ctx.fillRect(flagX, flagY - flagHeight + (i * sectionHeight), flagWidth, sectionHeight);
+        }
+        
+        // Flag border
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(flagX, flagY - flagHeight, flagWidth, flagHeight);
+    } else {
+        // Static left arm (no flag)
+        ctx.beginPath();
+        ctx.moveTo(x - 6, drawY + 5);
+        ctx.lineTo(x - 12, drawY + 8);
+        ctx.stroke();
+        
+        // Hand
+        ctx.fillStyle = '#FFD3B6';
+        ctx.beginPath();
+        ctx.arc(x - 12, drawY + 8, 3, 0, Math.PI * 2);
+        ctx.fill();
     }
 }
 
@@ -1644,36 +1674,56 @@ function drawSpectator(spectator) {
         ctx.fill();
     }
     
-    // Speech bubbles and cheers
-    if ((time % 150) < 15) {
-        // Create speech bubble
-        ctx.fillStyle = 'white';
-        ctx.beginPath();
+    // Add a flag to the waving spectator instead of a speech bubble
+    if (spectator.waving) {
+        // Flag characteristics based on which side the spectator is on
+        const flagSide = spectator.side;
+        const flagDirection = flagSide === 'left' ? 1 : -1;
         
-        // Position based on side
-        const bubbleX = spectator.side === 'left' ? screenX + 15 : screenX - 15;
-        ctx.arc(bubbleX, drawY - 15, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 0.5;
+        // Flag pole
+        const poleLength = 16;
+        const flagWidth = 12;
+        const flagHeight = 8;
+        
+        // Pole starts at the waving hand
+        const poleStartX = flagSide === 'left' ? screenX + 15 : screenX - 15;
+        const poleStartY = drawY - waveAmount;
+        
+        // Draw the pole
+        ctx.strokeStyle = '#8B4513'; // Brown pole
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(poleStartX, poleStartY);
+        ctx.lineTo(poleStartX + (flagDirection * poleLength), poleStartY - 2);
         ctx.stroke();
         
-        // Random cheer type
-        const cheerType = Math.floor(time / 10) % 4;
-        ctx.fillStyle = '#000';
-        ctx.font = '9px Arial';
-        let cheerText = "!";
+        // Flag position
+        const flagX = flagSide === 'left' ? poleStartX + 2 : poleStartX - flagWidth - 2;
+        const flagY = poleStartY - 2;
         
-        switch(cheerType) {
-            case 0: cheerText = "!"; break;
-            case 1: cheerText = "GO!"; break;
-            case 2: cheerText = "WOW"; break;
-            case 3: cheerText = "♥"; break;
+        // Flag colors for this spectator
+        const colors = [
+            { flag: ['#FF0000', '#FFFFFF', '#0000FF'] }, // Norway
+            { flag: ['#0000FF', '#FFFFFF', '#FF0000'] }, // France
+            { flag: ['#009900', '#FFFFFF', '#FF0000'] }, // Italy
+            { flag: ['#000000', '#FF0000', '#FFFF00'] }, // Germany
+            { flag: ['#0000FF', '#FFFF00', '#FF0000'] }, // Romania
+            { flag: ['#3C3B6E', '#FFFFFF', '#B22234'] }  // USA
+        ];
+        
+        const colorSet = colors[spectator.color % colors.length];
+        
+        // Draw the flag stripes
+        const sectionHeight = flagHeight / 3;
+        for (let i = 0; i < 3; i++) {
+            ctx.fillStyle = colorSet.flag[i];
+            ctx.fillRect(flagX, flagY - flagHeight + (i * sectionHeight), flagWidth, sectionHeight);
         }
         
-        // Position text in bubble
-        const textX = spectator.side === 'left' ? bubbleX - 3 : bubbleX - 5;
-        ctx.fillText(cheerText, textX, drawY - 12);
+        // Flag border
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(flagX, flagY - flagHeight, flagWidth, flagHeight);
     }
     
     ctx.restore();
