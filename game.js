@@ -3,8 +3,8 @@ const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 400;
 const SKIER_VERTICAL_OFFSET = 65;
 const FPS = 60;
-const SERVER_URL = 'http://localhost:3000';// 'https://skiingjs.appspot.com';
-const API_KEY = 'REPLACE_WITH_YOUR_API_KEY'; // API key for server authentication
+const SERVER_URL = 'https://skiingjs.appspot.com';
+const API_KEY = 'z9kMlYIkqOWKQvVUpDz+8A=='; // API key for server authentication
 
 // Game variables
 let canvas, ctx;

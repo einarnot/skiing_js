@@ -8,7 +8,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // API key for authentication (this would normally be in environment variables)
-const API_KEY = 'skiing_js_api_key_123456'; // REPLACE with your actual key in production
+const API_KEY = 'API_KEY_PLACEHOLDER'; // REPLACE with your actual key in production
 
 // Path to the JSON file for storing high scores locally
 const highScoresFilePath = path.join(__dirname, 'highscores.json');
