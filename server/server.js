@@ -1,17 +1,34 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const { Firestore } = require('@google-cloud/firestore');
+const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// API key for authentication (this would normally be in environment variables)
-const API_KEY = 'API_KEY_PLACEHOLDER'; // REPLACE with your actual key in production
-
 // Path to the JSON file for storing high scores locally
 const highScoresFilePath = path.join(__dirname, 'highscores.json');
+
+// Initialize Secret Manager
+const client = new SecretManagerServiceClient();
+
+// Function to fetch the API key from Secret Manager
+async function getApiKey() {
+  const projectId = process.env.GOOGLE_CLOUD_PROJECT; // Set in environment or hardcode for testing
+  const secretName = `projects/${projectId}/secrets/API_KEY/versions/latest`;
+  try {
+    const [version] = await client.accessSecretVersion({ name: secretName });
+    return version.payload.data.toString('utf8');
+  } catch (error) {
+    console.error('Error fetching API key:', error);
+    throw new Error('Unable to retrieve API key');
+  }
+}
+
+// Middleware to restrict access using API key
+let API_KEY; // Will be set after fetching
 
 // Initialize high scores file if it doesn't exist
 if (!fs.existsSync(highScoresFilePath)) {
@@ -57,10 +74,14 @@ const highScoresCollection = firestore.collection('highscores');
 app.use(bodyParser.json());
 
 // Middleware to verify API key
-const verifyApiKey = (req, res, next) => {
+async function verifyApiKey(req, res, next) {
   // Check API key in headers or query params
+  if (!API_KEY) {
+    API_KEY = await getApiKey(); // Fetch the key on first request
+  }
+
   const apiKey = req.headers['x-api-key'] || req.query.api_key;
-  
+
   if (!apiKey || apiKey !== API_KEY) {
     return res.status(401).json({ error: 'Invalid or missing API key' });
   }
