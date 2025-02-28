@@ -1,0 +1,14 @@
+{
+    "name": "high-score-server",
+    "version": "1.0.0",
+    "description": "A simple high score server",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "@google-cloud/firestore": "^7.11.0",
+        "body-parser": "^1.19.0",
+        "express": "^4.17.1"
+    }
+}
