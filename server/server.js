@@ -67,6 +67,20 @@ const restrictToDomain = (req, res, next) => {
 
 // Apply the middleware to all routes (or specific ones)
 app.use(restrictToDomain);
+// For CORS preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+  res.sendStatus(200);
+});
+
+// Enable CORS for all routes
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+  next();
+});
 
 app.use(bodyParser.json());
 
