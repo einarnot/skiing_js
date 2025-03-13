@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cross Country or Die</title>
+    <meta name="description" content="A fast-paced cross-country skiing game. Ski, jump, duck and try to get the highest score!">
+    <meta property="og:title" content="Cross Country or Die">
+    <meta property="og:description" content="A fast-paced cross-country skiing game with online leaderboards">
+    <meta property="og:type" content="website">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 3px solid #333;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            max-width: 100%;
+            max-height: 90vh;
+        }
+        #gameContainer {
+            text-align: center;
+        }
+        #gameInfo {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        .control-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            touch-action: manipulation;
+        }
+        .control-btn:hover {
+            background: #555;
+        }
+        .start-btn {
+            background: #0066FF;
+            padding: 10px 30px;
+            font-size: 16px;
+        }
+        #debug {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px;
+            font-size: 10px;
+            max-height: 100px;
+            overflow-y: auto;
+            width: 100%;
+            display: none;
+        }
+        .game-title {
+            font-size: 40px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            color: #D00;
+        }
+    </style>
+    
+    <!-- Pre-load game.js before the body -->
+    <script src="game.js"></script>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="controls">
+            <button class="control-btn start-btn" id="startButton" onclick="manualStartGame()">START GAME</button>
+        </div>
+        
+        <div class="controls">
+            <button class="control-btn" id="leftButton">LEFT</button>
+            <button class="control-btn" id="rightButton">RIGHT</button>
+            <button class="control-btn" id="jumpButton">JUMP</button>
+            <button class="control-btn" id="duckButton">DUCK</button>
+        </div>
+        
+        <div id="gameInfo">
+            Use LEFT and RIGHT arrow keys to ski. Try to maintain a steady rhythm.<br>
+            Press SPACE to jump over obstacles. Press DOWN ARROW to duck under bridges.<br>
+            Press L to view or submit to the online leaderboard.
+        </div>
+    </div>
+    
+    <div id="debug"></div>
+    
+    <script>
+        // Debugging helper
+        function log(msg) {
+            console.log(msg);
+            const debug = document.getElementById('debug');
+            if (debug) {
+                debug.style.display = 'block';
+                debug.innerHTML += msg + '<br>';
+                debug.scrollTop = debug.scrollHeight;
+            }
+        }
+        
+        // Direct game start function
+        function manualStartGame() {
+            log("Manual start button clicked");
+            try {
+                if (typeof startGame === 'function') {
+                    log("Using startGame function");
+                    startGame();
+                } else if (window.gameStartFunction) {
+                    log("Using window.gameStartFunction");
+                    window.gameStartFunction();
+                } else {
+                    // Force initialization if needed
+                    log("No start function found - forcing initialization");
+                    if (typeof init === 'function') {
+                        init();
+                        
+                        // Try again after init
+                        setTimeout(function() {
+                            if (typeof startGame === 'function') {
+                                startGame();
+                            } else if (window.gameStartFunction) {
+                                window.gameStartFunction();
+                            } else {
+                                throw new Error("Game functions not available");
+                            }
+                        }, 100);
+                    } else {
+                        throw new Error("Init function not available");
+                    }
+                }
+            } catch (error) {
+                log("ERROR: " + error.toString());
+                document.getElementById('debug').style.display = 'block';
+                // Last resort - reload the page
+                alert("Game initialization error: " + error.toString() + "\nPlease check console and refresh the page.");
+            }
+        }
+        
+        // Add button controls for mobile users
+        document.addEventListener('DOMContentLoaded', function() {
+            log('DOM fully loaded');
+            
+            // Set up control buttons
+            const leftButton = document.getElementById('leftButton');
+            const rightButton = document.getElementById('rightButton');
+            const jumpButton = document.getElementById('jumpButton');
+            const duckButton = document.getElementById('duckButton');
+            
+            if (leftButton) {
+                leftButton.addEventListener('click', function() {
+                    log("Left button clicked");
+                    const leftEvent = new KeyboardEvent('keydown', { 
+                        key: 'ArrowLeft', 
+                        code: 'ArrowLeft',
+                        bubbles: true
+                    });
+                    document.dispatchEvent(leftEvent);
+                });
+            }
+            
+            if (rightButton) {
+                rightButton.addEventListener('click', function() {
+                    log("Right button clicked");
+                    const rightEvent = new KeyboardEvent('keydown', { 
+                        key: 'ArrowRight', 
+                        code: 'ArrowRight',
+                        bubbles: true
+                    });
+                    document.dispatchEvent(rightEvent);
+                });
+            }
+            
+            if (jumpButton) {
+                jumpButton.addEventListener('click', function() {
+                    log("Jump button clicked");
+                    const spaceEvent = new KeyboardEvent('keydown', { 
+                        key: ' ', 
+                        code: 'Space',
+                        bubbles: true
+                    });
+                    document.dispatchEvent(spaceEvent);
+                });
+            }
+            
+            if (duckButton) {
+                duckButton.addEventListener('click', function() {
+                    log("Duck button clicked");
+                    const downEvent = new KeyboardEvent('keydown', { 
+                        key: 'ArrowDown', 
+                        code: 'ArrowDown',
+                        bubbles: true
+                    });
+                    document.dispatchEvent(downEvent);
+                });
+            }
+            
+            // Force-initialize the game if it hasn't happened yet
+            setTimeout(function() {
+                if (typeof init === 'function' && !window.gameInitialized) {
+                    log("Forcing game initialization");
+                    init();
+                    window.gameInitialized = true;
+                }
+            }, 500);
+        });
+    </script>
+</body>
+</html>
