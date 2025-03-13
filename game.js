@@ -2186,9 +2186,6 @@ function drawSkull(x, y, size) {
 async function fetchHighScores() {
     try {
         const response = await fetch(`${SERVER_URL}/highscores`, {
-            headers: {
-                'X-API-Key': API_KEY
-            }
         });
         if (!response.ok) {
             throw new Error(`Failed to fetch high scores: ${response.status}`);
@@ -2213,8 +2210,8 @@ async function loadBadWords() {
     
     try {
         // Load English and Norwegian bad words
-        const enResponse = await fetch(`${SERVER_URL}/badwords/en.txt?api_key=${API_KEY}`);
-        const noResponse = await fetch(`${SERVER_URL}/badwords/no.txt?api_key=${API_KEY}`);
+        const enResponse = await fetch(`${SERVER_URL}/badwords/en.txt`);
+        const noResponse = await fetch(`${SERVER_URL}/badwords/no.txt`);
         
         if (!enResponse.ok || !noResponse.ok) {
             throw new Error('Failed to load bad words lists');
@@ -2317,8 +2314,7 @@ async function submitScore(name, score) {
         const response = await fetch(`${SERVER_URL}/highscores`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key': API_KEY
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 
                 name: sanitizedName, 

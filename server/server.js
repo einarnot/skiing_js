@@ -10,9 +10,6 @@ const port = process.env.PORT || 3000;
 // Path to the JSON file for storing high scores locally
 const highScoresFilePath = path.join(__dirname, 'highscores.json');
 
-// Middleware to restrict access using API key
-let API_KEY; // Will be set after fetching
-
 // Initialize high scores file if it doesn't exist
 if (!fs.existsSync(highScoresFilePath)) {
   const initialData = [
