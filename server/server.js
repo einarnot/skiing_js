@@ -50,7 +50,11 @@ const firestore = new Firestore({
 });
 const highScoresCollection = firestore.collection('highscores');
 
+<<<<<<< HEAD
+ 
+=======
 
+>>>>>>> bcea4f8 (Initial commit)
 // Middleware to restrict access to einarnot.github.io
 const restrictToDomain = (req, res, next) => {
   const allowedOrigin = 'https://einarnot.github.io';
