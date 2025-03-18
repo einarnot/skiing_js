@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Endless Labyrinth FPS Shooter</title>
+   <style>
+       body { margin: 0; }
+       canvas { display: block; }
+   </style>
+</head>
+<body>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+   <script src="https://threejs.org/examples/js/controls/PointerLockControls.js"></script>
+   <script>
+       // Initialize scene, camera, and renderer
+       const scene = new THREE.Scene();
+       const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+       const renderer = new THREE.WebGLRenderer();
+       renderer.setSize(window.innerWidth, window.innerHeight);
+       document.body.appendChild(renderer.domElement);
+
+       // Add PointerLockControls for first-person mouse look
+       const controls = new THREE.PointerLockControls(camera, document.body);
+       document.addEventListener('click', () => {
+           controls.lock();
+       });
+
+       // Define materials with lighting support
+       const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+       const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+
+       // Labyrinth parameters
+       const gridSize = 5;  // 5x5 grid for simplicity
+       const roomSize = 10; // Size of each cell
+       const walls = [];    // Array to store wall meshes for collision
+
+       // Add ground plane
+       const groundGeometry = new THREE.PlaneGeometry(gridSize * roomSize, gridSize * roomSize);
+       const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+       ground.rotation.x = -Math.PI / 2;
+       scene.add(ground);
+
+       // Add lighting
+       const ambientLight = new THREE.AmbientLight(0x404040);
+       scene.add(ambientLight);
+       const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+       directionalLight.position.set(10, 20, 10);
+       scene.add(directionalLight);
+
+       // Generate maze with proper walls
+       const verticalWalls = Array(gridSize - 1).fill().map(() => Array(gridSize).fill(true));
+       const horizontalWalls = Array(gridSize).fill().map(() => Array(gridSize - 1).fill(true));
+       const visited = Array(gridSize).fill().map(() => Array(gridSize).fill(false));
+
+       function getUnvisitedNeighbors(i, j) {
+           const neighbors = [];
+           if (i > 0 && !visited[i - 1][j]) neighbors.push({ i: i - 1, j: j, dir: 'left' });
+           if (i < gridSize - 1 && !visited[i + 1][j]) neighbors.push({ i: i + 1, j: j, dir: 'right' });
+           if (j > 0 && !visited[i][j - 1]) neighbors.push({ i: i, j: j - 1, dir: 'up' });
+           if (j < gridSize - 1 && !visited[i][j + 1]) neighbors.push({ i: i, j: j + 1, dir: 'down' });
+           return neighbors;
+       }
+
+       function generateMaze() {
+           const stack = [{ i: 0, j: 0 }];
+           visited[0][0] = true;
+
+           while (stack.length > 0) {
+               const current = stack[stack.length - 1];
+               const neighbors = getUnvisitedNeighbors(current.i, current.j);
+               if (neighbors.length > 0) {
+                   const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                   if (next.dir === 'right') verticalWalls[current.i][current.j] = false;
+                   else if (next.dir === 'left') verticalWalls[next.i][current.j] = false;
+                   else if (next.dir === 'down') horizontalWalls[current.i][current.j] = false;
+                   else if (next.dir === 'up') horizontalWalls[current.i][next.j] = false;
+                   visited[next.i][next.j] = true;
+                   stack.push(next);
+               } else {
+                   stack.pop();
+               }
+           }
+       }
+
+       generateMaze();
+
+       // Create outer walls
+       const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2, gridSize * roomSize), wallMaterial);
+       leftWall.position.set(0, 1, gridSize * roomSize / 2);
+       scene.add(leftWall);
+       walls.push(leftWall);
+
+       const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2, gridSize * roomSize), wallMaterial);
+       rightWall.position.set(gridSize * roomSize, 1, gridSize * roomSize / 2);
+       scene.add(rightWall);
+       walls.push(rightWall);
+
+       const topWall = new THREE.Mesh(new THREE.BoxGeometry(gridSize * roomSize, 2, 0.1), wallMaterial);
+       topWall.position.set(gridSize * roomSize / 2, 1, 0);
+       scene.add(topWall);
+       walls.push(topWall);
+
+       const bottomWall = new THREE.Mesh(new THREE.BoxGeometry(gridSize * roomSize, 2, 0.1), wallMaterial);
+       bottomWall.position.set(gridSize * roomSize / 2, 1, gridSize * roomSize);
+       scene.add(bottomWall);
+       walls.push(bottomWall);
+
+       // Create internal walls
+       for (let i = 0; i < gridSize - 1; i++) {
+           for (let j = 0; j < gridSize; j++) {
+               if (verticalWalls[i][j]) {
+                   const wall = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2, roomSize), wallMaterial);
+                   wall.position.set((i + 1) * roomSize, 1, j * roomSize + roomSize / 2);
+                   scene.add(wall);
+                   walls.push(wall);
+               }
+           }
+       }
+       for (let i = 0; i < gridSize; i++) {
+           for (let j = 0; j < gridSize - 1; j++) {
+               if (horizontalWalls[i][j]) {
+                   const wall = new THREE.Mesh(new THREE.BoxGeometry(roomSize, 2, 0.1), wallMaterial);
+                   wall.position.set(i * roomSize + roomSize / 2, 1, (j + 1) * roomSize);
+                   scene.add(wall);
+                   walls.push(wall);
+               }
+           }
+       }
+
+       // Set initial camera position (eye level in the first cell)
+       camera.position.set(roomSize / 2, 1.5, roomSize / 2);
+
+       // Keyboard controls
+       const keys = {};
+       document.addEventListener('keydown', (event) => { keys[event.code] = true; });
+       document.addEventListener('keyup', (event) => { keys[event.code] = false; });
+
+       // Animation loop
+       function animate() {
+           requestAnimationFrame(animate);
+
+           // Calculate movement relative to camera orientation
+           const moveVector = new THREE.Vector3();
+           if (keys['KeyW']) moveVector.z -= 0.1;
+           if (keys['KeyS']) moveVector.z += 0.1;
+           if (keys['KeyA']) moveVector.x -= 0.1;
+           if (keys['KeyD']) moveVector.x += 0.1;
+
+           const worldMoveVector = moveVector.applyQuaternion(camera.quaternion);
+           const newPosition = camera.position.clone().add(worldMoveVector);
+
+           // Define player's bounding box
+           const newPlayerBox = new THREE.Box3(
+               new THREE.Vector3(newPosition.x - 0.25, 0, newPosition.z - 0.25),
+               new THREE.Vector3(newPosition.x + 0.25, 2, newPosition.z + 0.25)
+           );
+
+           // Check for collisions with walls
+           let collision = false;
+           for (const wall of walls) {
+               const wallBox = new THREE.Box3().setFromObject(wall);
+               if (newPlayerBox.intersectsBox(wallBox)) {
+                   collision = true;
+                   break;
+               }
+           }
+
+           // Move camera only if no collision
+           if (!collision) {
+               camera.position.copy(newPosition);
+           }
+
+           renderer.render(scene, camera);
+       }
+
+       animate();
+
+       // Handle window resize
+       window.addEventListener('resize', () => {
+           camera.aspect = window.innerWidth / window.innerHeight;
+           camera.updateProjectionMatrix();
+           renderer.setSize(window.innerWidth, window.innerHeight);
+       });
+   </script>
+</body>
+</html>
